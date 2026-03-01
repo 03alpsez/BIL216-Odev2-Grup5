@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DTMF Kodlama / Kod Çözme</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel2: #1a2235;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --green: #00ff88;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --border: #1e3a5f;
+    --glow: 0 0 20px rgba(0,229,255,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 30px 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.6rem, 4vw, 2.8rem);
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(0,229,255,0.5);
+    letter-spacing: 0.05em;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    font-weight: 300;
+  }
+
+  .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent3), #4f46e5);
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    transition: all 0.3s;
+    color: var(--muted);
+    border: none;
+    background: transparent;
+  }
+
+  .tab.active {
+    background: linear-gradient(135deg, var(--accent), #0080ff);
+    color: #000;
+    font-weight: 700;
+    box-shadow: var(--glow);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    padding: 14px;
+    resize: vertical;
+    min-height: 100px;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,229,255,0.1);
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .btn {
+    padding: 11px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    font-weight: 700;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #0080ff);
+    color: #000;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--glow); }
+
+  .btn-secondary {
+    background: var(--panel2);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .btn-secondary:hover { background: rgba(0,229,255,0.1); }
+
+  .btn-danger {
+    background: linear-gradient(135deg, var(--accent2), #e53e3e);
+    color: #fff;
+  }
+  .btn-danger:hover { transform: translateY(-1px); }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  label.param-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  input[type=range] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  select {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Visualizer */
+  canvas {
+    width: 100%;
+    height: 120px;
+    border-radius: 10px;
+    background: var(--panel2);
+    display: block;
+    margin-top: 8px;
+  }
+
+  /* Frequency table */
+  .freq-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+  }
+  .freq-table th {
+    color: var(--accent);
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+  }
+  .freq-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(30,58,95,0.5);
+    color: var(--muted);
+  }
+  .freq-table tr:hover td { background: rgba(0,229,255,0.03); color: var(--text); }
+
+  .freq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 6px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .freq-item {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .freq-item.highlight {
+    background: rgba(0,229,255,0.15);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0,229,255,0.2);
+  }
+  .freq-item .char {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    display: block;
+  }
+  .freq-item .freqs {
+    font-size: 0.55rem;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* Status */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    margin-top: 12px;
+    min-height: 40px;
+  }
+  .status.idle { background: rgba(100,116,139,0.1); color: var(--muted); }
+  .status.working { background: rgba(0,229,255,0.1); color: var(--accent); }
+  .status.success { background: rgba(0,255,136,0.1); color: var(--green); }
+  .status.error { background: rgba(255,107,53,0.15); color: var(--accent2); }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .idle .dot { background: var(--muted); }
+  .working .dot { background: var(--accent); animation: pulse 0.8s infinite; }
+  .success .dot { background: var(--green); }
+  .error .dot { background: var(--accent2); }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.7); }
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--panel2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 2px;
+    transition: width 0.1s;
+    width: 0%;
+  }
+
+  /* Result box */
+  .result-box {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    min-height: 60px;
+    color: var(--green);
+    word-break: break-all;
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Upload area */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--panel2);
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.05);
+  }
+  .upload-area .icon { font-size: 2rem; margin-bottom: 8px; }
+  .upload-area p { color: var(--muted); font-size: 0.85rem; }
+  .upload-area input { display: none; }
+
+  /* Spectrum bar chart */
+
+  .scrollable { max-height: 300px; overflow-y: auto; }
+  .scrollable::-webkit-scrollbar { width: 4px; }
+  .scrollable::-webkit-scrollbar-track { background: var(--panel2); }
+  .scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  .param-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .param-val { 
+    font-family: 'Space Mono', monospace; 
+    color: var(--accent); 
+    font-size: 0.85rem; 
+    min-width: 50px;
+  }
+
+  .wave-icon { font-size: 0.8rem; animation: wave 2s infinite; display: inline-block; }
+  @keyframes wave { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(1.5)} }
+
+  .param-chip {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pchip-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .pchip-val {
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  .char-btn {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 32px;
+    text-align: center;
+  }
+  .char-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .char-btn.active {
+    background: rgba(0,229,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 8px rgba(0,229,255,0.2);
+  }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>◈ DTMF SİNYAL SİSTEMİ</h1>
+    <p>Türk Alfabesi · Frekans Tabanlı Ses Kodlama / Kod Çözme</p>
+    <span class="badge">BIL216 · İŞARETLER VE SİSTEMLER · 2025-2026</span>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('encode')">▶ KODLAMA (Metin→Ses)</button>
+    <button class="tab" onclick="switchTab('decode')">◀ KOD ÇÖZME (Ses→Metin)</button>
+    <button class="tab" onclick="switchTab('table')">⊞ FREKANS TABLOSU</button>
+  </div>
+
+  <!-- ENCODE TAB -->
+  <div class="tab-content active" id="tab-encode">
+
+
+    <div class="card">
+      <div class="card-title">▸ Sistem Parametreleri</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+        <div class="param-chip"><span class="pchip-label">Örnekleme Hızı</span><span class="pchip-val">44100 Hz</span></div>
+        <div class="param-chip"><span class="pchip-label">Karakter Süresi</span><span class="pchip-val">40 ms</span></div>
+        <div class="param-chip"><span class="pchip-label">Sessizlik (Gap)</span><span class="pchip-val">10 ms</span></div>
+        <div class="param-chip"><span class="pchip-label">Pencere Fonk.</span><span class="pchip-val">Hamming</span></div>
+        <div class="param-chip"><span class="pchip-label">Analiz Yöntemi</span><span class="pchip-val">Goertzel</span></div>
+        <div class="param-chip"><span class="pchip-label">Karakter Seti</span><span class="pchip-val">30 (29+boşluk)</span></div>
+        <div class="param-chip" style="grid-column:span 2;"><span class="pchip-label">Sentez Formülü</span><span class="pchip-val" style="font-size:0.78rem;white-space:nowrap;">s(t) = sin(2πf₁t) + sin(2πf₂t)</span></div>
+        <div class="param-chip"><span class="pchip-label">Bit Derinliği</span><span class="pchip-val">16-bit PCM</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">▸ Metin Girişi</div>
+      <textarea id="inputText" placeholder="Kodlanacak Türkçe metni buraya girin...&#10;Örnek: MERHABA DÜNYA" rows="4"></textarea>
+      <div class="controls">
+        <button class="btn btn-primary" id="encodeBtn" onclick="startEncoding()">▶ Kodla ve Çal</button>
+        <button class="btn btn-secondary" id="downloadBtn" onclick="downloadWav()" disabled>⬇ WAV İndir</button>
+        <button class="btn btn-danger" id="stopBtn" onclick="stopAudio()" disabled>■ Durdur</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="encodeProgress"></div></div>
+      <div class="status idle" id="encodeStatus"><div class="dot"></div><span id="encodeStatusText">Hazır</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">▸ Dalga Formu — Tüm Sinyal</div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px;font-family:'Space Mono',monospace;">s(t) = sin(2πf₁t) + sin(2πf₂t) · Hamming penceresi uygulanmış · Zaman ekseni: ms</div>
+      <canvas id="waveformCanvas" height="130"></canvas>
+      <div style="display:flex;gap:16px;margin-top:6px;font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--muted);">
+        <span>◈ <span style="color:var(--accent)">Mavi</span> = sinyal genliği</span>
+        <span>◈ <span style="color:rgba(255,107,53,0.7)">Turuncu</span> = karakter sınırları</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">▸ Tek Karakter Yakın Görünüm + Frekans Spektrumu</div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;font-family:'Space Mono',monospace;">
+        Karakter seçin → zaman domeninde yakın görünüm ve Goertzel ile hesaplanan frekans bileşenleri
+      </div>
+      <div id="charSelector" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:0.65rem;color:var(--accent);font-family:'Space Mono',monospace;margin-bottom:4px;letter-spacing:0.1em;">ZAMAN DOMAİNİ</div>
+          <canvas id="charWaveCanvas" height="110"></canvas>
+          <div id="charWaveInfo" style="font-size:0.68rem;color:var(--muted);font-family:'Space Mono',monospace;margin-top:4px;"></div>
+        </div>
+        <div>
+          <div style="font-size:0.65rem;color:var(--accent);font-family:'Space Mono',monospace;margin-bottom:4px;letter-spacing:0.1em;">FREKANS DOMAİNİ (Goertzel)</div>
+          <canvas id="charSpecCanvas" height="110"></canvas>
+          <div id="charSpecInfo" style="font-size:0.68rem;color:var(--muted);font-family:'Space Mono',monospace;margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECODE TAB -->
+  <div class="tab-content" id="tab-decode">
+
+
+    <div class="card">
+      <div class="card-title">▸ Yöntem A: Statik Dosya Analizi</div>
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('wavInput').click()" 
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="wavInput" accept=".wav" onchange="loadWavFile(this.files[0])">
+        <div class="icon">🎵</div>
+        <p>WAV dosyasını buraya sürükleyin veya tıklayın</p>
+        <p style="font-size:0.7rem;margin-top:4px;color:var(--accent)">Desteklenen: .wav</p>
+      </div>
+      <div class="controls" style="margin-top:12px">
+        <button class="btn btn-primary" id="decodeFileBtn" onclick="decodeFile()" disabled>◀ Dosyayı Çöz</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="decodeProgress"></div></div>
+      <div class="status idle" id="decodeStatus"><div class="dot"></div><span id="decodeStatusText">Dosya bekleniyor</span></div>
+    </div>
+
+
+
+    <div class="card">
+      <div class="card-title">▸ Çözümlenen Metin</div>
+      <div class="result-box" id="decodedText">—</div>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="clearDecoded()">✕ Temizle</button>
+        <button class="btn btn-secondary" onclick="copyDecoded()">⎘ Kopyala</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE TAB -->
+  <div class="tab-content" id="tab-table">
+    <div class="card">
+      <div class="card-title">▸ Karakter → Frekans Çifti Haritası</div>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:14px;">Her Türk alfabesi harfi ve boşluk için tanımlanan düşük (f₁) ve yüksek (f₂) frekans çiftleri. s(t) = sin(2πf₁t) + sin(2πf₂t)</p>
+      <div class="freq-grid scrollable" id="freqGrid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">▸ Frekans Matrisi</div>
+      <div class="scrollable">
+        <table class="freq-table" id="freqTable">
+          <thead><tr><th>CHAR</th><th>f₁ (Hz)</th><th>f₂ (Hz)</th><th>TOPLAM BİLEŞEN</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    DTMF — Dual Tone Multi Frequency · Web Audio API · Goertzel &amp; FFT Analiz · BIL216 Sinyaller ve Sistemler
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// DTMF FREQUENCY MAP - Türk Alfabesi (29 harf + boşluk = 30)
+// ============================================================
+// Low frequencies: 697, 770, 852, 941, 1209, 1336, 1477 Hz (DTMF row freqs, extended)
+// High frequencies: extended set to cover 30 chars
+// We use a grid of 6 low × 5 high = 30 combinations
+
+const LOW_FREQS  = [697, 770, 852, 941, 1100, 1300];
+const HIGH_FREQS = [1209, 1336, 1477, 1633, 1800];
+
+const CHARS = ['A','B','C','Ç','D','E','F','G','Ğ','H','I','İ','J','K','L','M',
+               'N','O','Ö','P','R','S','Ş','T','U','Ü','V','Y','Z',' '];
+
+// Build freq map
+const FREQ_MAP = {};
+const REVERSE_MAP = {}; // "f1_f2" -> char
+
+CHARS.forEach((ch, i) => {
+  const row = Math.floor(i / 5);
+  const col = i % 5;
+  const f1 = LOW_FREQS[row];
+  const f2 = HIGH_FREQS[col];
+  FREQ_MAP[ch] = { f1, f2 };
+  REVERSE_MAP[`${f1}_${f2}`] = ch;
+});
+
+// ============================================================
+// STATE
+// ============================================================
+let audioCtx = null;
+let currentSource = null;
+let encodedBuffer = null;
+let decodedResult = '';
+let lastDecodedChar = null;
+let loadedAudioBuffer = null;
+
+// ============================================================
+// UTILS
+// ============================================================
+function getAudioCtx() {
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function setStatus(id, type, text) {
+  const el = document.getElementById(id);
+  el.className = `status ${type}`;
+  el.querySelector('span').textContent = text;
+}
+
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const tabs = ['encode','decode','table'];
+  const idx = tabs.indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'table') renderTable();
+}
+
+// ============================================================
+// WINDOW FUNCTIONS
+// ============================================================
+function applyWindow(samples, type) {
+  const N = samples.length;
+  for (let n = 0; n < N; n++) {
+    let w = 1;
+    if (type === 'hamming') w = 0.54 - 0.46 * Math.cos(2 * Math.PI * n / (N - 1));
+    else if (type === 'hann') w = 0.5 * (1 - Math.cos(2 * Math.PI * n / (N - 1)));
+    samples[n] *= w;
+  }
+  return samples;
+}
+
+// ============================================================
+// SIGNAL SYNTHESIS (ENCODING)
+// ============================================================
+function synthesizeChar(ch, sampleRate, durationMs, windowType) {
+  const numSamples = Math.round(sampleRate * durationMs / 1000);
+  let samples = new Float32Array(numSamples);
+  const freq = FREQ_MAP[ch.toUpperCase()];
+  if (!freq) return samples;
+  const { f1, f2 } = freq;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    samples[i] = 0.5 * (Math.sin(2 * Math.PI * f1 * t) + Math.sin(2 * Math.PI * f2 * t));
+  }
+  applyWindow(samples, windowType);
+  return samples;
+}
+
+function encodeText(text, sampleRate, charMs, gapMs, windowType) {
+  const chars = text.toUpperCase().split('').filter(c => FREQ_MAP[c] !== undefined);
+  if (chars.length === 0) return null;
+
+  const charSamples = Math.round(sampleRate * charMs / 1000);
+  const gapSamples  = Math.round(sampleRate * gapMs  / 1000);
+  const totalSamples = chars.length * charSamples + (chars.length - 1) * gapSamples;
+
+  const buffer = new Float32Array(totalSamples);
+  let pos = 0;
+  chars.forEach((ch, i) => {
+    const s = synthesizeChar(ch, sampleRate, charMs, windowType);
+    buffer.set(s, pos);
+    pos += charSamples;
+    if (i < chars.length - 1) pos += gapSamples; // silence gap
+  });
+  return { buffer, chars, charSamples, gapSamples, sampleRate };
+}
+
+async function startEncoding() {
+  const text = document.getElementById('inputText').value.trim();
+  if (!text) { setStatus('encodeStatus','error','Lütfen bir metin girin!'); return; }
+
+  const sr       = 44100;
+  const charMs   = 40;
+  const gapMs    = 10;
+  const winType  = 'hamming';
+
+  setStatus('encodeStatus','working','Sinyal sentezleniyor...');
+  document.getElementById('encodeBtn').disabled = true;
+  document.getElementById('encodeProgress').style.width = '10%';
+
+  await new Promise(r => setTimeout(r, 10));
+
+  const result = encodeText(text, sr, charMs, gapMs, winType);
+  if (!result) { setStatus('encodeStatus','error','Geçersiz karakter!'); document.getElementById('encodeBtn').disabled=false; return; }
+
+  document.getElementById('encodeProgress').style.width = '50%';
+  encodedData = result;
+  drawWaveform(result.buffer, 'waveformCanvas', result.charSamples, result.gapSamples, result.chars);
+  buildCharSelector(result.chars);
+  encodedBuffer = result;
+  
+  // Create AudioBuffer and play
+  const ctx = getAudioCtx();
+  const abuf = ctx.createBuffer(1, result.buffer.length, sr);
+  abuf.copyToChannel(result.buffer, 0);
+  
+  if (currentSource) { try { currentSource.stop(); } catch(e) {} }
+  currentSource = ctx.createBufferSource();
+  currentSource.buffer = abuf;
+  currentSource.connect(ctx.destination);
+  currentSource.start();
+  
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('downloadBtn').disabled = false;
+  document.getElementById('encodeProgress').style.width = '100%';
+  setStatus('encodeStatus','success',`✓ ${result.chars.length} karakter sentezlendi ve çalınıyor (${sr}Hz, ${charMs}ms/karakter)`);
+  document.getElementById('encodeBtn').disabled = false;
+
+  currentSource.onended = () => {
+    setStatus('encodeStatus','idle','Tamamlandı');
+    document.getElementById('stopBtn').disabled = true;
+  };
+}
+
+function stopAudio() {
+  if (currentSource) { try { currentSource.stop(); } catch(e) {} }
+  setStatus('encodeStatus','idle','Durduruldu');
+  document.getElementById('stopBtn').disabled = true;
+}
+
+// ============================================================
+// WAV EXPORT
+// ============================================================
+function downloadWav() {
+  if (!encodedBuffer) return;
+  const { buffer, sampleRate } = encodedBuffer;
+  const wav = encodeWav(buffer, sampleRate);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dtmf_output.wav';
+  a.click();
+}
+
+function encodeWav(samples, sampleRate) {
+  const numChannels = 1, bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = samples.length * bytesPerSample;
+  const buf = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buf);
+
+  function writeStr(o, s) { for(let i=0;i<s.length;i++) view.setUint8(o+i, s.charCodeAt(i)); }
+  writeStr(0,'RIFF'); view.setUint32(4,36+dataSize,true);
+  writeStr(8,'WAVE'); writeStr(12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,numChannels,true); view.setUint32(24,sampleRate,true);
+  view.setUint32(28,byteRate,true); view.setUint16(32,blockAlign,true);
+  view.setUint16(34,bitDepth,true); writeStr(36,'data');
+  view.setUint32(40,dataSize,true);
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+  return buf;
+}
+
+// ============================================================
+// WAVEFORM DRAW — enhanced
+// ============================================================
+let encodedData = null; // store {buffer, chars, charSamples, gapSamples, sampleRate}
+
+function drawWaveform(samples, canvasId, charSamples, gapSamples, chars) {
+  const canvas = document.getElementById(canvasId);
+  const ctx2 = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 130 * devicePixelRatio;
+  ctx2.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 130;
+  ctx2.fillStyle = '#111827';
+  ctx2.fillRect(0,0,W,H);
+
+  // Draw character boundary shading alternating
+  if (charSamples && gapSamples && chars) {
+    const stepSamples = charSamples + gapSamples;
+    for (let i = 0; i < chars.length; i++) {
+      const xStart = (i * stepSamples / samples.length) * W;
+      const xEnd   = ((i * stepSamples + charSamples) / samples.length) * W;
+      ctx2.fillStyle = i % 2 === 0 ? 'rgba(0,229,255,0.04)' : 'rgba(124,58,237,0.04)';
+      ctx2.fillRect(xStart, 0, xEnd - xStart, H);
+      // Char label at top
+      ctx2.fillStyle = 'rgba(0,229,255,0.35)';
+      ctx2.font = `${Math.max(7, Math.min(10, (xEnd-xStart)-2))}px Space Mono, monospace`;
+      const label = chars[i] === ' ' ? '⎵' : chars[i];
+      ctx2.fillText(label, xStart + 2, 10);
+      // Boundary line
+      ctx2.strokeStyle = 'rgba(255,107,53,0.25)';
+      ctx2.lineWidth = 0.5;
+      ctx2.beginPath(); ctx2.moveTo(xStart, 0); ctx2.lineTo(xStart, H); ctx2.stroke();
+    }
+  }
+
+  // Time axis labels (ms)
+  const totalMs = samples.length / 44100 * 1000;
+  const tickCount = Math.min(10, Math.floor(totalMs / 10));
+  ctx2.fillStyle = 'rgba(100,116,139,0.6)';
+  ctx2.font = '8px Space Mono, monospace';
+  for (let t = 0; t <= tickCount; t++) {
+    const ms = (totalMs / tickCount) * t;
+    const x = (t / tickCount) * W;
+    ctx2.fillText(Math.round(ms) + 'ms', x + 2, H - 2);
+    ctx2.strokeStyle = 'rgba(100,116,139,0.1)';
+    ctx2.lineWidth = 0.5;
+    ctx2.beginPath(); ctx2.moveTo(x, 14); ctx2.lineTo(x, H - 12); ctx2.stroke();
+  }
+
+  // Center line
+  ctx2.strokeStyle = 'rgba(0,229,255,0.12)';
+  ctx2.lineWidth = 1;
+  ctx2.beginPath(); ctx2.moveTo(0, H/2); ctx2.lineTo(W, H/2); ctx2.stroke();
+
+  // Amplitude envelope (filled)
+  ctx2.fillStyle = 'rgba(0,229,255,0.08)';
+  ctx2.beginPath();
+  ctx2.moveTo(0, H/2);
+  for (let x = 0; x < W; x++) {
+    const idx = Math.floor(x * samples.length / W);
+    ctx2.lineTo(x, H/2 - samples[idx] * (H/2 - 16) * 0.85);
+  }
+  ctx2.lineTo(W, H/2); ctx2.closePath(); ctx2.fill();
+
+  // Waveform line
+  ctx2.strokeStyle = 'rgba(0,229,255,0.85)';
+  ctx2.lineWidth = 1;
+  ctx2.beginPath();
+  for (let x = 0; x < W; x++) {
+    const idx = Math.floor(x * samples.length / W);
+    const y = H/2 - samples[idx] * (H/2 - 16) * 0.85;
+    x === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
+  }
+  ctx2.stroke();
+}
+
+// ============================================================
+// SINGLE CHARACTER VISUALIZATION
+// ============================================================
+let selectedCharIdx = 0;
+
+function buildCharSelector(chars) {
+  const sel = document.getElementById('charSelector');
+  if (!sel) return;
+  sel.innerHTML = '';
+  chars.forEach((ch, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'char-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = ch === ' ' ? '⎵' : ch;
+    btn.title = `Karakter: ${ch === ' ' ? 'BOŞLUK' : ch} (${FREQ_MAP[ch].f1}Hz + ${FREQ_MAP[ch].f2}Hz)`;
+    btn.onclick = () => {
+      document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedCharIdx = i;
+      renderCharDetail(i);
+    };
+    sel.appendChild(btn);
+  });
+  renderCharDetail(0);
+}
+
+function renderCharDetail(idx) {
+  if (!encodedData) return;
+  const { buffer, chars, charSamples, gapSamples, sampleRate } = encodedData;
+  const stepSamples = charSamples + gapSamples;
+  const start = idx * stepSamples;
+  const segment = buffer.slice(start, start + charSamples);
+  const ch = chars[idx];
+  const { f1, f2 } = FREQ_MAP[ch];
+
+  // --- Zaman domaini canvas ---
+  const wc = document.getElementById('charWaveCanvas');
+  const wctx = wc.getContext('2d');
+  wc.width = wc.offsetWidth * devicePixelRatio;
+  wc.height = 110 * devicePixelRatio;
+  wctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = wc.offsetWidth, H = 110;
+
+  wctx.fillStyle = '#111827';
+  wctx.fillRect(0,0,W,H);
+
+  // Center + axis
+  wctx.strokeStyle = 'rgba(0,229,255,0.1)';
+  wctx.lineWidth = 1;
+  wctx.beginPath(); wctx.moveTo(0, H/2); wctx.lineTo(W, H/2); wctx.stroke();
+
+  // Individual sine components (f1 = cyan faint, f2 = orange faint)
+  const drawSine = (freq, color) => {
+    wctx.strokeStyle = color;
+    wctx.lineWidth = 0.8;
+    wctx.beginPath();
+    for (let x = 0; x < W; x++) {
+      const i = Math.floor(x * segment.length / W);
+      const t = i / sampleRate;
+      const y = H/2 - 0.5 * Math.sin(2 * Math.PI * freq * t) * (H/2 - 8) * 0.8;
+      x === 0 ? wctx.moveTo(x, y) : wctx.lineTo(x, y);
+    }
+    wctx.stroke();
+  };
+  drawSine(f1, 'rgba(0,229,255,0.25)');
+  drawSine(f2, 'rgba(255,107,53,0.25)');
+
+  // Composite (actual segment with Hamming window)
+  wctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  wctx.lineWidth = 1.2;
+  wctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    const i = Math.floor(x * segment.length / W);
+    const y = H/2 - segment[i] * (H/2 - 8) * 0.9;
+    x === 0 ? wctx.moveTo(x, y) : wctx.lineTo(x, y);
+  }
+  wctx.stroke();
+
+  // Time labels
+  wctx.fillStyle = 'rgba(100,116,139,0.7)';
+  wctx.font = '8px Space Mono, monospace';
+  wctx.fillText('0ms', 2, H - 3);
+  wctx.fillText('40ms', W - 28, H - 3);
+
+  // Info
+  document.getElementById('charWaveInfo').innerHTML =
+    `Karakter: <span style="color:var(--accent)">${ch === ' ' ? 'BOŞLUK' : ch}</span> &nbsp;|&nbsp; ` +
+    `<span style="color:rgba(0,229,255,0.5)">f₁=${f1}Hz</span> + ` +
+    `<span style="color:rgba(255,107,53,0.7)">f₂=${f2}Hz</span> &nbsp;|&nbsp; ` +
+    `${segment.length} örnek @ 44100Hz`;
+
+  // --- Frekans domaini (Goertzel) ---
+  const sc = document.getElementById('charSpecCanvas');
+  const sctx = sc.getContext('2d');
+  sc.width = sc.offsetWidth * devicePixelRatio;
+  sc.height = 110 * devicePixelRatio;
+  sctx.scale(devicePixelRatio, devicePixelRatio);
+  const SW = sc.offsetWidth, SH = 110;
+
+  sctx.fillStyle = '#111827';
+  sctx.fillRect(0, 0, SW, SH);
+
+  // Compute Goertzel magnitudes for all known freqs
+  const allFreqs = [...new Set([...LOW_FREQS, ...HIGH_FREQS])].sort((a,b) => a - b);
+  const mags = allFreqs.map(f => goertzel(segment, f, sampleRate));
+  const maxMag = Math.max(...mags, 1);
+
+  const bw = SW / allFreqs.length;
+  allFreqs.forEach((f, i) => {
+    const h = (mags[i] / maxMag) * (SH - 22);
+    const isF1 = f === f1, isF2 = f === f2;
+    const isLow = LOW_FREQS.includes(f);
+
+    // Bar color: detected freqs glow
+    if (isF1) sctx.fillStyle = 'rgba(0,229,255,1)';
+    else if (isF2) sctx.fillStyle = 'rgba(255,107,53,1)';
+    else if (isLow) sctx.fillStyle = 'rgba(0,229,255,0.3)';
+    else sctx.fillStyle = 'rgba(255,107,53,0.3)';
+
+    sctx.fillRect(i * bw + 1, SH - h - 18, bw - 2, h);
+
+    // Freq label
+    sctx.fillStyle = (isF1 || isF2) ? '#fff' : 'rgba(100,116,139,0.6)';
+    sctx.font = `${Math.max(6, Math.min(9, bw - 1))}px Space Mono, monospace`;
+    sctx.save();
+    sctx.translate(i * bw + bw/2, SH - 4);
+    sctx.rotate(-Math.PI / 4);
+    sctx.fillText(f, 0, 0);
+    sctx.restore();
+
+    // Highlight detected peaks with triangle marker
+    if (isF1 || isF2) {
+      sctx.fillStyle = isF1 ? 'rgba(0,229,255,0.9)' : 'rgba(255,107,53,0.9)';
+      const tx = i * bw + bw / 2, ty = SH - h - 22;
+      sctx.beginPath();
+      sctx.moveTo(tx, ty); sctx.lineTo(tx - 4, ty - 7); sctx.lineTo(tx + 4, ty - 7);
+      sctx.closePath(); sctx.fill();
+      // Label above
+      sctx.fillStyle = isF1 ? 'var(--accent)' : '#ff6b35';
+      sctx.font = 'bold 8px Space Mono, monospace';
+      sctx.fillText((isF1 ? 'f₁' : 'f₂') + '=' + f, tx - 12, ty - 10);
+    }
+  });
+
+  // Axis line
+  sctx.strokeStyle = 'rgba(100,116,139,0.3)';
+  sctx.lineWidth = 1;
+  sctx.beginPath(); sctx.moveTo(0, SH - 18); sctx.lineTo(SW, SH - 18); sctx.stroke();
+
+  document.getElementById('charSpecInfo').innerHTML =
+    `Tespit edilen: <span style="color:var(--accent)">f₁=${f1}Hz ▲</span> &nbsp; ` +
+    `<span style="color:var(--accent2)">f₂=${f2}Hz ▲</span> &nbsp;|&nbsp; ` +
+    `Hamming pencereli Goertzel analizi`;
+}
+
+// ============================================================
+// GOERTZEL ALGORITHM
+// ============================================================
+function goertzel(samples, freq, sampleRate) {
+  const N = samples.length;
+  const k = Math.round(N * freq / sampleRate);
+  const omega = 2 * Math.PI * k / N;
+  const coeff = 2 * Math.cos(omega);
+  let q1 = 0, q2 = 0;
+  for (let i = 0; i < N; i++) {
+    const q0 = coeff * q1 - q2 + samples[i];
+    q2 = q1; q1 = q0;
+  }
+  return Math.sqrt(q1*q1 + q2*q2 - q1*q2*coeff);
+}
+
+// ============================================================
+// FFT (DIT Cooley-Tukey)
+// ============================================================
+function fft(re, im) {
+  const N = re.length;
+  if (N <= 1) return;
+  const even_re = [], even_im = [], odd_re = [], odd_im = [];
+  for (let i = 0; i < N/2; i++) {
+    even_re[i] = re[2*i]; even_im[i] = im[2*i];
+    odd_re[i]  = re[2*i+1]; odd_im[i] = im[2*i+1];
+  }
+  fft(even_re, even_im); fft(odd_re, odd_im);
+  for (let k = 0; k < N/2; k++) {
+    const angle = -2 * Math.PI * k / N;
+    const tr = Math.cos(angle)*odd_re[k] - Math.sin(angle)*odd_im[k];
+    const ti = Math.cos(angle)*odd_im[k] + Math.sin(angle)*odd_re[k];
+    re[k]       = even_re[k] + tr; im[k]       = even_im[k] + ti;
+    re[k+N/2]   = even_re[k] - tr; im[k+N/2]   = even_im[k] - ti;
+  }
+}
+
+function getFFTPeaks(samples, sampleRate) {
+  let N = 1;
+  while (N < samples.length) N <<= 1;
+  const re = new Array(N).fill(0);
+  const im = new Array(N).fill(0);
+  for (let i = 0; i < samples.length; i++) re[i] = samples[i];
+  fft(re, im);
+  const mags = new Array(N/2);
+  for (let i = 0; i < N/2; i++) mags[i] = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
+  // Find two highest peaks
+  const freqRes = sampleRate / N;
+  const peaks = [];
+  for (let i = 1; i < N/2 - 1; i++) {
+    if (mags[i] > mags[i-1] && mags[i] > mags[i+1]) peaks.push({ freq: i*freqRes, mag: mags[i] });
+  }
+  peaks.sort((a,b) => b.mag - a.mag);
+  return peaks.slice(0, 10);
+}
+
+function matchFreqs(f1, f2) {
+  let best = null, bestDist = Infinity;
+  for (const key of Object.keys(REVERSE_MAP)) {
+    const [kf1, kf2] = key.split('_').map(Number);
+    const d = Math.abs(f1 - kf1) + Math.abs(f2 - kf2);
+    const d2 = Math.abs(f1 - kf2) + Math.abs(f2 - kf1);
+    const dd = Math.min(d, d2);
+    if (dd < bestDist) { bestDist = dd; best = REVERSE_MAP[key]; }
+  }
+  return bestDist < 100 ? best : null;
+}
+
+// ============================================================
+// DECODING - Static File
+// ============================================================
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadWavFile(file);
+}
+
+function loadWavFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const ctx = getAudioCtx();
+    try {
+      loadedAudioBuffer = await ctx.decodeAudioData(e.target.result.slice(0));
+      setStatus('decodeStatus','success',`✓ Dosya yüklendi: ${file.name} (${loadedAudioBuffer.duration.toFixed(2)}s, ${loadedAudioBuffer.sampleRate}Hz)`);
+      document.getElementById('decodeFileBtn').disabled = false;
+    } catch(err) {
+      setStatus('decodeStatus','error','Dosya okunamadı: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function decodeFile() {
+  if (!loadedAudioBuffer) return;
+  const method = 'goertzel';
+
+  setStatus('decodeStatus','working','Analiz ediliyor...');
+  document.getElementById('decodeProgress').style.width = '0%';
+
+  setTimeout(() => {
+    const sr = loadedAudioBuffer.sampleRate;
+    const data = loadedAudioBuffer.getChannelData(0);
+    const charMs = 40;
+    const gapMs  = 10;
+    const charSamples = Math.round(sr * charMs / 1000);
+    const gapSamples  = Math.round(sr * gapMs / 1000);
+    const stepSamples = charSamples + gapSamples;
+
+    let result = '';
+    // Son kalan segment de dahil edilmeli (Math.ceil ile)
+    const total = Math.ceil(data.length / stepSamples);
+
+    for (let i = 0; i < total; i++) {
+      const start = i * stepSamples;
+      const end = Math.min(start + charSamples, data.length);
+      if (end <= start) break;
+      const segment = data.slice(start, end);
+
+      // Çok kısa segmentleri atla (en az 10ms)
+      if (segment.length < Math.round(sr * 10 / 1000)) continue;
+
+      // Enerji kontrolü
+      let energy = 0;
+      for (let x of segment) energy += x*x;
+      if (energy / segment.length < 0.0005) continue;
+
+      let ch = null;
+      if (method === 'goertzel') {
+        ch = decodeWithGoertzel(segment, sr);
+      } else {
+        ch = decodeWithFFT(segment, sr);
+      }
+      if (ch) result += ch;
+
+      document.getElementById('decodeProgress').style.width = Math.round((i/total)*100)+'%';
+    }
+
+    document.getElementById('decodedText').textContent = result || '(Hiçbir karakter çözümlenemedi)';
+    decodedResult = result;
+    setStatus('decodeStatus','success',`✓ Çözümleme tamamlandı. ${result.length} karakter.`);
+    document.getElementById('decodeProgress').style.width = '100%';
+  }, 50);
+}
+
+function decodeWithGoertzel(samples, sr) {
+  // Find best matching char using Goertzel for all freq pairs
+  let best = null, bestScore = -1;
+  const allLow  = [...new Set(Object.values(FREQ_MAP).map(v=>v.f1))];
+  const allHigh = [...new Set(Object.values(FREQ_MAP).map(v=>v.f2))];
+
+  const lowMags  = {};
+  const highMags = {};
+  for (const f of allLow)  lowMags[f]  = goertzel(samples, f, sr);
+  for (const f of allHigh) highMags[f] = goertzel(samples, f, sr);
+
+  for (const [ch, {f1,f2}] of Object.entries(FREQ_MAP)) {
+    const score = lowMags[f1] * highMags[f2];
+    if (score > bestScore) { bestScore = score; best = ch; }
+  }
+  return best;
+}
+
+function decodeWithFFT(samples, sr) {
+  const peaks = getFFTPeaks(samples, sr);
+  if (peaks.length < 2) return null;
+  // Try to match top peaks to known freq pairs
+  for (let i = 0; i < Math.min(4, peaks.length); i++) {
+    for (let j = i+1; j < Math.min(5, peaks.length); j++) {
+      const ch = matchFreqs(peaks[i].freq, peaks[j].freq);
+      if (ch) return ch;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// FREQUENCY TABLE
+// ============================================================
+function renderTable() {
+  const grid = document.getElementById('freqGrid');
+  const tbody = document.querySelector('#freqTable tbody');
+  grid.innerHTML = '';
+  tbody.innerHTML = '';
+
+  CHARS.forEach(ch => {
+    const { f1, f2 } = FREQ_MAP[ch];
+    
+    // Grid item
+    const div = document.createElement('div');
+    div.className = 'freq-item';
+    div.innerHTML = `<span class="char">${ch === ' ' ? '⎵' : ch}</span><span class="freqs">${f1}+${f2}</span>`;
+    div.addEventListener('click', () => {
+      // Play preview
+      const sr = 44100, dur = 200;
+      const ctx = getAudioCtx();
+      const samples = synthesizeChar(ch, sr, dur, 'hamming');
+      const abuf = ctx.createBuffer(1, samples.length, sr);
+      abuf.copyToChannel(samples, 0);
+      const src = ctx.createBufferSource();
+      src.buffer = abuf;
+      src.connect(ctx.destination);
+      src.start();
+    });
+    grid.appendChild(div);
+
+    // Table row
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${ch === ' ' ? 'SPACE' : ch}</td><td>${f1}</td><td>${f2}</td><td>${f1} + ${f2} Hz</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ============================================================
+// MISC
+// ============================================================
+function clearDecoded() {
+  decodedResult = '';
+  document.getElementById('decodedText').textContent = '—';
+  lastDecodedChar = null;
+}
+
+function copyDecoded() {
+  const text = document.getElementById('decodedText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Kopyalandı';
+    setTimeout(() => btn.textContent = '⎘ Kopyala', 1500);
+  });
+}
+
+// Initialize
+renderTable();
+</script>
+</body>
+</html>
